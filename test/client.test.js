@@ -49,8 +49,19 @@ test('play resolves on play.done with fsmrf-style result', async(t) => {
   ep.on('playback-stop', () => events.push('stop'));
   const result = await ep.play('silence_stream://1000');
   assert.equal(result.reason, 'completed');
+  assert.equal(result.playbackSeconds, 0);
   assert.equal(result.playbackMilliseconds, 100);
+  assert.equal(result.playbackLastOffsetPos, 800);
   assert.deepEqual(events, ['start', 'stop']);
+});
+
+test('play PlaybackOptions form passes seekOffset', async(t) => {
+  const { ms, mock } = await setup(t);
+  const ep = await ms.createEndpoint({});
+  await ep.play({ file: '/tmp/foo.wav', seekOffset: 8000 });
+  const playReq = mock.requests.find((r) => r.cmd === 'play.start');
+  assert.deepEqual(playReq.data.urls, ['/tmp/foo.wav']);
+  assert.equal(playReq.data.seekOffset, 8000);
 });
 
 test('play url translation', async(t) => {

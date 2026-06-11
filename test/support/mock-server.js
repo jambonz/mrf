@@ -104,7 +104,7 @@ class MockMediajam {
           ep.playTimers.delete(t);
           this.send(socket, {
             t: 'evt', ep: frame.ep, evt: 'play.done',
-            data: { playId, reason: 'completed', durationMs: 100 }
+            data: { playId, reason: 'completed', durationMs: 100, playbackMs: 100, lastOffsetPos: 800 }
           });
         }, 30);
         ep.playTimers.add(t);
