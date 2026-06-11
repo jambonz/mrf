@@ -150,3 +150,9 @@ test('connection loss destroys endpoints with connectionLost', async() => {
   await ended;
   assert.equal(evt.reason, 'connectionLost');
 });
+
+test('setLogLevel changes and queries server log level', async(t) => {
+  const { ms } = await setup(t);
+  assert.equal(await ms.setLogLevel('debug'), 'debug');
+  assert.equal(await ms.setLogLevel(), 'debug');
+});

@@ -122,6 +122,10 @@ class MockMediajam {
       case 'endpoint.info':
         res({ codec: 'PCMU', stats: { packetsIn: 0 } });
         break;
+      case 'system.logLevel':
+        this.logLevel = (frame.data && frame.data.level) || this.logLevel || 'info';
+        res({ level: this.logLevel });
+        break;
       default:
         fail('unknown_command', frame.cmd);
     }
