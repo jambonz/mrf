@@ -194,3 +194,33 @@ test('setLogLevel changes and queries server log level', async(t) => {
   assert.equal(await ms.setLogLevel('debug'), 'debug');
   assert.equal(await ms.setLogLevel(), 'debug');
 });
+
+test('startTranscription forwards channel vars as options', async(t) => {
+  const { ms, mock } = await setup(t);
+  const ep = await ms.createEndpoint({});
+  await ep.set({DEEPGRAM_API_KEY: 'k123', DEEPGRAM_SPEECH_MODEL: 'nova-2', UNRELATED: ''});
+  await ep.startTranscription({vendor: 'deepgram', locale: 'en-US', interim: true});
+  const req = mock.requests.find((r) => r.cmd === 'stt.start');
+  assert.equal(req.data.vendor, 'deepgram');
+  assert.equal(req.data.language, 'en-US');
+  assert.equal(req.data.interim, true);
+  assert.equal(req.data.bugname, 'deepgram_transcribe');
+  assert.equal(req.data.options.DEEPGRAM_API_KEY, 'k123');
+  assert.equal(req.data.options.DEEPGRAM_SPEECH_MODEL, 'nova-2');
+  assert.ok(!('UNRELATED' in req.data.options), 'empty vars are cleared');
+});
+
+test('stt events deliver fsmrf header aliases', async(t) => {
+  const { ms, mock } = await setup(t);
+  const ep = await ms.createEndpoint({});
+  const got = new Promise((resolve) => ep.addCustomEventListener('stt.transcription',
+    (payload, evtObj) => resolve({payload, evtObj})));
+  mock.pushEvent(ep.uuid, 'stt.transcription', {
+    vendor: 'deepgram', bugname: 'deepgram_transcribe', finished: 'true',
+    json: '{"is_final":true}'
+  });
+  const {payload, evtObj} = await got;
+  assert.equal(payload.is_final, true);
+  assert.equal(evtObj.getHeader('transcription-vendor'), 'deepgram');
+  assert.equal(evtObj.getHeader('transcription-session-finished'), 'true');
+});

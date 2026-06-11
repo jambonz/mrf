@@ -112,6 +112,8 @@ class MockMediajam {
       }
       case 'play.stop':
       case 'dtmf.send':
+      case 'stt.start':
+      case 'stt.stop':
       case 'endpoint.set':
       case 'endpoint.mute':
       case 'endpoint.unmute':
