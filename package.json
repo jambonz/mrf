@@ -1,0 +1,34 @@
+{
+  "name": "@jambonz/mediajam-client",
+  "version": "0.1.0",
+  "description": "Node.js client for the mediajam media server, exposing a drachtio-fsmrf compatible API",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test",
+    "jslint": "eslint .",
+    "jslint:fix": "eslint . --fix"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jambonz/mediajam-client.git"
+  },
+  "keywords": [
+    "jambonz",
+    "mediajam",
+    "media-server",
+    "voip",
+    "rtp"
+  ],
+  "author": "Dave Horton",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jambonz/mediajam-client/issues"
+  },
+  "homepage": "https://github.com/jambonz/mediajam-client#readme",
+  "devDependencies": {
+    "eslint": "^9.0.0"
+  }
+}
