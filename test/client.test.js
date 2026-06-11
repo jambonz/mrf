@@ -56,7 +56,7 @@ test('play resolves on play.done with fsmrf-style result', async(t) => {
 test('play url translation', async(t) => {
   const { ms, mock } = await setup(t);
   const ep = await ms.createEndpoint({});
-  await ep.play(['silence_stream://500', 'tone_stream://%(250,0,440)', 'https://x.test/a.wav']);
+  await ep.play(['silence_stream://500', 'tone_stream://L=1;%(250, 0, 440)', 'https://x.test/a.wav']);
   const playReq = mock.requests.find((r) => r.cmd === 'play.start');
   assert.deepEqual(playReq.data.urls, [
     'silence://?duration=500',
