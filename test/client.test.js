@@ -93,14 +93,26 @@ test('bridge and unbridge', async(t) => {
   assert.ok(mock.requests.find((r) => r.cmd === 'bridge.destroy'));
 });
 
-test('destroy emits destroy event and removes endpoint', async(t) => {
+test('self-initiated destroy does NOT emit destroy (fsmrf parity)', async(t) => {
   const { ms } = await setup(t);
   const ep = await ms.createEndpoint({});
-  const destroyed = new Promise((resolve) => ep.once('destroy', resolve));
+  let emitted = false;
+  ep.once('destroy', () => emitted = true);
   await ep.destroy();
-  await destroyed;
+  await new Promise((r) => setTimeout(r, 50));
+  assert.equal(emitted, false, 'destroy event must not fire for app-initiated destroy');
   assert.equal(ep.connected, false);
   assert.equal(ms.endpointCount, 0);
+});
+
+test('server-initiated destruction emits destroy', async(t) => {
+  const { ms, mock } = await setup(t);
+  const ep = await ms.createEndpoint({});
+  const destroyed = new Promise((resolve) => ep.once('destroy', resolve));
+  mock.pushEvent(ep.uuid, 'endpoint.destroyed', { reason: 'mediaTimeout' });
+  const evt = await destroyed;
+  assert.equal(evt.reason, 'mediaTimeout');
+  assert.equal(ep.connected, false);
 });
 
 test('dtmf events surface in fsmrf shape', async(t) => {
