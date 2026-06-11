@@ -1,7 +1,6 @@
 {
   "name": "@jambonz/mrf",
   "version": "0.1.0",
-  "description": "Node.js client for the mediajam media server, exposing a drachtio-fsmrf compatible API",
   "main": "index.js",
   "scripts": {
     "test": "node --test",
@@ -15,13 +14,6 @@
     "type": "git",
     "url": "git+https://github.com/jambonz/mrf.git"
   },
-  "keywords": [
-    "jambonz",
-    "mediajam",
-    "media-server",
-    "voip",
-    "rtp"
-  ],
   "author": "Dave Horton",
   "license": "MIT",
   "bugs": {
