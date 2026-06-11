@@ -135,13 +135,28 @@ test('dtmf events surface in fsmrf shape', async(t) => {
   assert.deepEqual(evt, { dtmf: '5', duration: 120, source: 'rfc2833' });
 });
 
-test('custom event listeners receive unknown events', async(t) => {
+test('custom event listeners receive normalized events with fsmrf contract', async(t) => {
   const { ms, mock } = await setup(t);
   const ep = await ms.createEndpoint({});
-  const got = new Promise((resolve) => ep.addCustomEventListener('stt.transcription', resolve));
-  mock.pushEvent(ep.uuid, 'stt.transcription', { vendor: 'deepgram', body: { text: 'hi' } });
-  const data = await got;
-  assert.equal(data.vendor, 'deepgram');
+  const got = new Promise((resolve) => ep.addCustomEventListener('stt.transcription',
+    (payload, evtObj) => resolve({payload, evtObj})));
+  mock.pushEvent(ep.uuid, 'stt.transcription',
+    { vendor: 'deepgram', bugname: 'default', json: '{"text":"hi"}' });
+  const {payload, evtObj} = await got;
+  assert.equal(payload.text, 'hi', 'json payload is parsed');
+  assert.equal(evtObj.getHeader('media-bugname'), 'default');
+});
+
+test('fork.play_audio delivers parsed file payload', async(t) => {
+  const { ms, mock } = await setup(t);
+  const ep = await ms.createEndpoint({});
+  const got = new Promise((resolve) => ep.addCustomEventListener('fork.play_audio',
+    (payload, evtObj) => resolve({payload, evtObj})));
+  mock.pushEvent(ep.uuid, 'fork.play_audio',
+    { bugname: 'b1', json: '{"file":"/tmp/x.tmp.r16","audioContentType":"raw"}' });
+  const {payload, evtObj} = await got;
+  assert.equal(payload.file, '/tmp/x.tmp.r16');
+  assert.equal(evtObj.getHeader('media-bugname'), 'b1');
 });
 
 test('stats update mediaserver gauges', async(t) => {
