@@ -97,7 +97,7 @@ class MockMediajam {
       case 'play.start': {
         const ep = this.endpoints.get(frame.ep);
         if (!ep) return fail('unknown_endpoint', frame.ep);
-        const playId = randomUUID().slice(0, 8);
+        const playId = frame.data?.playId || randomUUID().slice(0, 8);
         res({ playId });
         this.send(socket, { t: 'evt', ep: frame.ep, evt: 'play.start', data: { playId } });
         const t = setTimeout(() => {
