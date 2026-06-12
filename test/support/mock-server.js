@@ -14,10 +14,10 @@ class MockMediajam {
     this.requests = []; // every req frame received, for assertions
   }
 
-  listen() {
+  listen(port = 0) {
     return new Promise((resolve) => {
       this.server = net.createServer((socket) => this._onConnection(socket));
-      this.server.listen(0, '127.0.0.1', () => {
+      this.server.listen(port, '127.0.0.1', () => {
         this.port = this.server.address().port;
         resolve(this.port);
       });

@@ -174,19 +174,28 @@ test('stats update mediaserver gauges', async(t) => {
   assert.equal(ms.cpuIdle, 88);
 });
 
-test('connection loss destroys endpoints with connectionLost', async() => {
+test('connection loss destroys endpoints and reconnects', async() => {
   const mock = new MockMediajam();
   const port = await mock.listen();
   const mrf = new Mrf();
   const ms = await mrf.connect({ address: '127.0.0.1', port });
   const ep = await ms.createEndpoint({});
   const destroyed = new Promise((resolve) => ep.once('destroy', resolve));
-  const ended = new Promise((resolve) => ms.conn.once('esl::end', resolve));
+  const disconnected = new Promise((resolve) => ms.once('disconnect', resolve));
+  const ready = new Promise((resolve) => ms.conn.once('esl::ready', resolve));
   mock.close();
   for (const socket of mock.sockets) socket.destroy();
   const evt = await destroyed;
-  await ended;
+  await disconnected;
   assert.equal(evt.reason, 'connectionLost');
+  // esl::end must NOT fire on transient loss (it is fatal to the
+  // feature-server); the wrapper redials and re-emits esl::ready
+  ms.conn.once('esl::end', () => assert.fail('esl::end fired on transient loss'));
+  await mock.listen(port);
+  await ready;
+  assert.equal(ms.connected, true);
+  ms.destroy();
+  mock.close();
 });
 
 test('setLogLevel changes and queries server log level', async(t) => {
