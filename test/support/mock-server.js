@@ -119,6 +119,11 @@ class MockMediajam {
       case 'endpoint.unmute':
       case 'bridge.create':
       case 'bridge.destroy':
+      case 'dub.addTrack':
+      case 'dub.removeTrack':
+      case 'dub.silenceTrack':
+      case 'dub.playOnTrack':
+      case 'dub.sayOnTrack':
         res({});
         break;
       case 'endpoint.info':

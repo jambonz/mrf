@@ -92,6 +92,36 @@ test('execute send_dtmf maps digits and duration', async(t) => {
   assert.equal(req.data.durationMs, 150);
 });
 
+test('dub actions map to dub.* commands', async(t) => {
+  const { ms, mock } = await setup(t);
+  const ep = await ms.createEndpoint({});
+  await ep.dub({ action: 'addTrack', track: 'music' });
+  await ep.dub({ action: 'playOnTrack', track: 'music', play: 'http://x/a.mp3', loop: true, gain: 5 });
+  await ep.dub({ action: 'sayOnTrack', track: 'music', say: 'say:{vendor=google}hello', gain: -3 });
+  await ep.dub({ action: 'silenceTrack', track: 'music' });
+  await ep.dub({ action: 'removeTrack', track: 'music' });
+
+  const add = mock.requests.find((r) => r.cmd === 'dub.addTrack');
+  assert.equal(add.data.track, 'music');
+  const play = mock.requests.find((r) => r.cmd === 'dub.playOnTrack');
+  assert.equal(play.data.url, 'http://x/a.mp3');
+  assert.equal(play.data.loop, true);
+  assert.equal(play.data.gainDb, 5);
+  const say = mock.requests.find((r) => r.cmd === 'dub.sayOnTrack');
+  assert.equal(say.data.say, 'say:{vendor=google}hello');
+  assert.equal(say.data.gainDb, -3);
+  assert.ok(mock.requests.find((r) => r.cmd === 'dub.silenceTrack'));
+  assert.ok(mock.requests.find((r) => r.cmd === 'dub.removeTrack'));
+});
+
+test('setGain maps to endpoint.set gainDb', async(t) => {
+  const { ms, mock } = await setup(t);
+  const ep = await ms.createEndpoint({});
+  await ep.setGain(7);
+  const req = mock.requests.filter((r) => r.cmd === 'endpoint.set').pop();
+  assert.equal(req.data.gainDb, 7);
+});
+
 test('bridge and unbridge', async(t) => {
   const { ms, mock } = await setup(t);
   const a = await ms.createEndpoint({});
