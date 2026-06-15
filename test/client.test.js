@@ -122,6 +122,16 @@ test('setGain maps to endpoint.set gainDb', async(t) => {
   assert.equal(req.data.gainDb, 7);
 });
 
+test('api uuid_dub setGain maps to endpoint.set gainDb', async(t) => {
+  const { ms, mock } = await setup(t);
+  const ep = await ms.createEndpoint({});
+  // config verb boostAudioSignal/gainAdjustment + dial gain path:
+  // ep.api('uuid_dub', [uuid, 'setGain', db])
+  await ep.api('uuid_dub', [ep.uuid, 'setGain', -6]);
+  const req = mock.requests.filter((r) => r.cmd === 'endpoint.set').pop();
+  assert.equal(req.data.gainDb, -6);
+});
+
 test('bridge and unbridge', async(t) => {
   const { ms, mock } = await setup(t);
   const a = await ms.createEndpoint({});
