@@ -161,6 +161,18 @@ test('each endpoint has its OWN conn (no cross-room event bleed)', async () => {
   assert.strictEqual(bFired, 0, 'endpoint B must not see endpoint A room events');
 });
 
+test('forkAdopt/Release into conference translate to room.fork.adopt/release', async () => {
+  const { ep, calls } = makeEp((cmd) =>
+    cmd === 'room.fork.adopt' ? { botMemberId: 7, botId: 'conf_bot:c:7' } : {});
+  const res = await ep.forkAdoptIntoConference('conf:acct:room', 'audio_fork');
+  await ep.forkReleaseFromConference('audio_fork');
+  assert.deepStrictEqual(calls.map((c) => [c.cmd, c.data]), [
+    ['room.fork.adopt', { room: 'conf:acct:room', bugname: 'audio_fork' }],
+    ['room.fork.release', { bugname: 'audio_fork' }]
+  ]);
+  assert.deepStrictEqual(res, { botMemberId: 7, botId: 'conf_bot:c:7' });
+});
+
 test('MediaServer.api conference list count returns a raw string body', async () => {
   let found = true;
   const mockConn = {
