@@ -1,6 +1,6 @@
 {
   "name": "@jambonz/mrf",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "main": "index.js",
   "scripts": {
     "test": "node --test",
