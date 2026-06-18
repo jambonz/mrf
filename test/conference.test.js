@@ -80,13 +80,15 @@ test('api conference set endconference_grace_time is accepted (no-op)', async ()
   assert.strictEqual(calls.length, 0);
 });
 
-test('play/record conference verbs no-op with +OK (Phase 2 room media)', async () => {
+test('conference play issues room.play (bong->beep, urls pass through); record no-ops', async () => {
   const { ep, calls } = makeEp();
-  for (const v of ['play', 'record']) {
-    const res = await ep.api(`conference myconf ${v} whatever`);
-    assert.deepStrictEqual(res, { body: '+OK' }, `${v} should +OK`);
-  }
-  assert.strictEqual(calls.length, 0);
+  assert.deepStrictEqual(await ep.api('conference myconf record /tmp/x'), { body: '+OK' });
+  assert.deepStrictEqual(await ep.api('conference myconf play tone_stream://v=-7;%(100,0,941)'), { body: '+OK' });
+  assert.deepStrictEqual(await ep.api('conference myconf play https://x/a.wav'), { body: '+OK' });
+  assert.deepStrictEqual(calls.map((c) => [c.cmd, c.data]), [
+    ['room.play', { room: 'myconf', url: 'tone://?freq=440&duration=250&gainDb=-4' }],
+    ['room.play', { room: 'myconf', url: 'https://x/a.wav' }]
+  ]);
 });
 
 test('coach/whisper: tag, relate, and getNonMatchingConfParticipants translate to room.*', async () => {
