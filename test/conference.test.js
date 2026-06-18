@@ -175,6 +175,18 @@ test('forkAdopt/Release into conference translate to room.fork.adopt/release', a
   assert.deepStrictEqual(res, { botMemberId: 7, botId: 'conf_bot:c:7' });
 });
 
+test('s2sAdopt/Release into conference translate to s2s.joinRoom/leaveRoom', async () => {
+  const { ep, calls } = makeEp((cmd) =>
+    cmd === 's2s.joinRoom' ? { botMemberId: 9, botId: 'conf_bot:c:9' } : {});
+  const res = await ep.s2sAdoptIntoConference('conf:acct:room');
+  await ep.s2sReleaseFromConference();
+  assert.deepStrictEqual(calls.map((c) => [c.cmd, c.data]), [
+    ['s2s.joinRoom', { room: 'conf:acct:room' }],
+    ['s2s.leaveRoom', {}]
+  ]);
+  assert.deepStrictEqual(res, { botMemberId: 9, botId: 'conf_bot:c:9' });
+});
+
 test('MediaServer.api conference list count returns a raw string body', async () => {
   let found = true;
   const mockConn = {
