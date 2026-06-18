@@ -80,13 +80,43 @@ test('api conference set endconference_grace_time is accepted (no-op)', async ()
   assert.strictEqual(calls.length, 0);
 });
 
-test('Phase-2 conference verbs (play/record/tag/relate) no-op with +OK', async () => {
+test('play/record conference verbs no-op with +OK (Phase 2 room media)', async () => {
   const { ep, calls } = makeEp();
-  for (const v of ['play', 'record', 'tag', 'relate']) {
+  for (const v of ['play', 'record']) {
     const res = await ep.api(`conference myconf ${v} whatever`);
     assert.deepStrictEqual(res, { body: '+OK' }, `${v} should +OK`);
   }
   assert.strictEqual(calls.length, 0);
+});
+
+test('coach/whisper: tag, relate, and getNonMatchingConfParticipants translate to room.*', async () => {
+  const { ep, calls } = makeEp((cmd) =>
+    cmd === 'room.getTagMembers' ? { memberIds: [5, 9] } : {});
+
+  await ep.api('conference', ['myconf', 'tag', 7, 'agent']);
+  await ep.api('conference', ['myconf', 'tag', 7]);                  // omitted tag clears it
+  await ep.api('conference', ['myconf', 'relate', 3, '5,9', 'nospeak']);
+  await ep.api('conference', ['myconf', 'relate', 3, '5', 'clear']);
+  const nonMatching = await ep.getNonMatchingConfParticipants('myconf', 'agent');
+
+  assert.deepStrictEqual(calls.map((c) => [c.cmd, c.data]), [
+    ['room.member.setTag', { room: 'myconf', member: 7, tag: 'agent' }],
+    ['room.member.setTag', { room: 'myconf', member: 7, tag: '' }],
+    ['room.relate', { room: 'myconf', member: 3, targets: [5, 9], mode: 'nospeak' }],
+    ['room.relate', { room: 'myconf', member: 3, targets: [5], mode: 'clear' }],
+    ['room.getTagMembers', { room: 'myconf', tag: 'agent', nomatch: true }]
+  ]);
+  assert.deepStrictEqual(nonMatching, [5, 9]);
+});
+
+test('room.tagChanged reshapes into a "tag" action carrying the Tag header', async () => {
+  const { ep } = makeEp();
+  let evt;
+  ep.conn.on('esl::event::CUSTOM::*', (e) => { evt = e; });
+  ep._onEvent('room.tagChanged', { memberId: 7, tag: 'agent', count: 2, roomUuid: 'u-1' });
+  assert.strictEqual(evt.getHeader('Action'), 'tag');
+  assert.strictEqual(evt.getHeader('Member-ID'), '7');
+  assert.strictEqual(evt.getHeader('Tag'), 'agent');
 });
 
 test('room.* events reshape into a conference::maintenance CUSTOM event', async () => {
