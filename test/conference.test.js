@@ -204,3 +204,71 @@ test('MediaServer.api conference list count returns a raw string body', async ()
   const miss = await ms.api('conference myconf list count');
   assert.ok(/Conference myconf not found/.test(miss), `confNoMatch should match: ${miss}`);
 });
+
+test('roomSay sends room.say with the say url + id + replace, returns {sayId, id}', async () => {
+  const { ep, calls } = makeEp((cmd) => (cmd === 'room.say' ? { sayId: 's-1', id: 'a1' } : {}));
+  ep._roomName = 'myconf'; // joined room
+  const res = await ep.roomSay('say:{vendor=deepgram}hello all', { id: 'a1', replace: true });
+  const c = calls.find((c) => c.cmd === 'room.say');
+  assert.deepStrictEqual(c.data, { room: 'myconf', url: 'say:{vendor=deepgram}hello all', id: 'a1', replace: true });
+  assert.deepStrictEqual(res, { sayId: 's-1', id: 'a1' });
+});
+
+test('roomSay throws when the endpoint is not in a room', async () => {
+  const { ep } = makeEp();
+  await assert.rejects(() => ep.roomSay('say:{}hi'), /not in a room/);
+});
+
+test('roomPlay translates the url, sends room.play, returns {playId}', async () => {
+  const { ep, calls } = makeEp((cmd) => (cmd === 'room.play' ? { playId: 'p-1' } : {}));
+  const res = await ep.roomPlay('tone_stream://%(200,0,880)', { room: 'myconf' });
+  const c = calls.find((c) => c.cmd === 'room.play');
+  assert.deepStrictEqual(c.data, { room: 'myconf', url: 'tone://?freq=880&duration=200' });
+  assert.deepStrictEqual(res, { playId: 'p-1' });
+});
+
+test('stopRoomSay / stopRoomPlay send the *Stop commands by id', async () => {
+  const { ep, calls } = makeEp();
+  ep._roomName = 'myconf';
+  await ep.stopRoomSay({ sayId: 's-1' });
+  await ep.stopRoomPlay({ playId: 'p-1' });
+  assert.deepStrictEqual(calls.map((c) => [c.cmd, c.data]), [
+    ['room.sayStop', { room: 'myconf', sayId: 's-1' }],
+    ['room.playStop', { room: 'myconf', playId: 'p-1' }]
+  ]);
+});
+
+test('say-start / say-done reshape into conference::maintenance carrying id, reason, durationMs', async () => {
+  const { ep } = makeEp();
+  const seen = [];
+  ep.conn.on('esl::event::CUSTOM::*', (evt) => seen.push(evt));
+
+  ep._onEvent('say-start', { room: 'myconf', sayId: 's-1', id: 'a1', vendor: 'deepgram', ttfbMs: 120 });
+  ep._onEvent('say-done', { room: 'myconf', sayId: 's-1', id: 'a1', vendor: 'deepgram', reason: 'completed', durationMs: 2400 });
+
+  assert.strictEqual(seen.length, 2);
+  assert.strictEqual(seen[0].getHeader('Event-Subclass'), 'conference::maintenance');
+  assert.strictEqual(seen[0].getHeader('Action'), 'say-start');
+  assert.strictEqual(seen[0].getHeader('Say-ID'), 's-1');
+  assert.strictEqual(seen[0].getHeader('App-ID'), 'a1');
+  assert.strictEqual(seen[0].getHeader('Conference-Name'), 'myconf');
+  assert.strictEqual(seen[1].getHeader('Action'), 'say-done');
+  assert.strictEqual(seen[1].getHeader('Reason'), 'completed');
+  assert.strictEqual(seen[1].getHeader('Duration-Ms'), '2400');
+});
+
+test('play-start / play-done reshape into conference::maintenance (no app id ok)', async () => {
+  const { ep } = makeEp();
+  const seen = [];
+  ep.conn.on('esl::event::CUSTOM::*', (evt) => seen.push(evt));
+
+  ep._onEvent('play-start', { room: 'myconf', playId: 'p-1' });
+  ep._onEvent('play-done', { room: 'myconf', playId: 'p-1', reason: 'stopped', durationMs: 500 });
+
+  assert.strictEqual(seen.length, 2);
+  assert.strictEqual(seen[0].getHeader('Action'), 'play-start');
+  assert.strictEqual(seen[0].getHeader('Play-ID'), 'p-1');
+  assert.strictEqual(seen[0].getHeader('App-ID'), ''); // absent id => empty
+  assert.strictEqual(seen[1].getHeader('Action'), 'play-done');
+  assert.strictEqual(seen[1].getHeader('Reason'), 'stopped');
+});
