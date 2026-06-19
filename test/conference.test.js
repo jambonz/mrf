@@ -244,7 +244,8 @@ test('say-start / say-done reshape into conference::maintenance carrying id, rea
   ep.conn.on('esl::event::CUSTOM::*', (evt) => seen.push(evt));
 
   ep._onEvent('say-start', { room: 'myconf', sayId: 's-1', id: 'a1', vendor: 'deepgram', ttfbMs: 120 });
-  ep._onEvent('say-done', { room: 'myconf', sayId: 's-1', id: 'a1', vendor: 'deepgram', reason: 'completed', durationMs: 2400 });
+  ep._onEvent('say-done',
+    { room: 'myconf', sayId: 's-1', id: 'a1', vendor: 'deepgram', reason: 'completed', durationMs: 2400 });
 
   assert.strictEqual(seen.length, 2);
   assert.strictEqual(seen[0].getHeader('Event-Subclass'), 'conference::maintenance');
