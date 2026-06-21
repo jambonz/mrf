@@ -38,6 +38,15 @@ test('unlicensed binary: generate returns -ERR (no token), feature-server then s
   assert.ok(!ep._sessionToken1);
 });
 
+test('nolicense server (hello licensing:false): generate skips the control round-trip', async () => {
+  const { ep, calls } = makeEp(() => { throw new Error('should not be called'); });
+  ep.ms.licensingEnabled = false;
+  const res = await ep.api('uuid_jambonz_licensing', 'generate-session-token ep-1 call-7');
+  assert.strictEqual(res.body, '+OK'); // success, no token -> FS adds no header
+  assert.strictEqual(ep._sessionToken1, '');
+  assert.strictEqual(calls.length, 0); // no licensing.generate-token request issued
+});
+
 test('token-2 is validated against the stashed token-1', async () => {
   const { ep, calls } = makeEp((cmd) => (cmd === 'licensing.generate-token' ? { token: 'TOK1' } : { valid: true }));
   await ep.api('uuid_jambonz_licensing', 'generate-session-token ep-1 call-123');
