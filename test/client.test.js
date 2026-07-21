@@ -34,6 +34,26 @@ test('createEndpoint returns fsmrf-shaped endpoint', async(t) => {
   assert.ok(createReq.data.remoteSdp);
 });
 
+test('modify returns the negotiated local SDP string (fsmrf contract)', async(t) => {
+  const { ms, mock } = await setup(t);
+  const ep = await ms.createEndpoint({ remoteSdp: 'v=0\r\nc=IN IP4 1.2.3.4\r\nm=audio 5004 RTP/AVP 0\r\n' });
+
+  // A re-INVITE that moves the far end's RTP port (same as a carrier reconnecting
+  // a queued agent). The feature-server puts modify()'s return value straight into
+  // the 200 OK body, so it MUST be the SDP string — returning the Endpoint object
+  // would serialize as "[object Object]" and break media renegotiation.
+  const offer = 'v=0\r\nc=IN IP4 1.2.3.4\r\nm=audio 6006 RTP/AVP 0\r\n';
+  const answer = await ep.modify(offer);
+
+  assert.equal(typeof answer, 'string', 'modify must resolve to an SDP string, not the endpoint');
+  assert.ok(answer.startsWith('v=0'), 'modify must resolve to a valid SDP body');
+  assert.equal(answer, ep.local.sdp, 'returned SDP is the endpoint local SDP');
+  // endpoint state still tracks the new remote offer
+  assert.equal(ep.remote.mediaPort, 6006);
+  const modReq = mock.requests.find((r) => r.cmd === 'endpoint.modify');
+  assert.equal(modReq.data.remoteSdp, offer);
+});
+
 test('media_timeout option maps to mediaTimeoutMs', async(t) => {
   const { ms, mock } = await setup(t);
   await ms.createEndpoint({ media_timeout: '30000' });
