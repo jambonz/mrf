@@ -239,6 +239,42 @@ test('MediaServer.startConferenceFork sends server-scoped room.fork.start (uuid=
   ]);
 });
 
+test('MediaServer.startConferenceMemberForks sends room.fork.members.start (uuid=null)', async () => {
+  const calls = [];
+  const mockConn = {
+    on() {},
+    request: async (cmd, uuid, data) => {
+      calls.push({ cmd, uuid, data });
+      return cmd === 'room.fork.members.start' ? { members: [2, 5], count: 2 } : {};
+    }
+  };
+  const ms = new MediaServer(mockConn, null, { address: '127.0.0.1', port: 9000 });
+
+  const res = await ms.startConferenceMemberForks('conf:acct:room', {
+    wsUrl: 'wss://sink.example/fork',
+    sampleRate: 16000,
+    metadata: { app: 'monitor' },
+    wsAuth: { username: 'u', password: 'p' }
+  });
+  await ms.stopConferenceMemberForks('conf:acct:room');
+
+  assert.deepStrictEqual(res, { members: [2, 5], count: 2 });
+  assert.deepStrictEqual(calls, [
+    {
+      cmd: 'room.fork.members.start',
+      uuid: null,
+      data: {
+        room: 'conf:acct:room',
+        wsUrl: 'wss://sink.example/fork',
+        sampleRate: 16000,
+        metadata: { app: 'monitor' },
+        wsAuth: { username: 'u', password: 'p' }
+      }
+    },
+    { cmd: 'room.fork.members.stop', uuid: null, data: { room: 'conf:acct:room' } }
+  ]);
+});
+
 test('roomSay sends room.say with the say url + id + replace, returns {sayId, id}', async () => {
   const { ep, calls } = makeEp((cmd) => (cmd === 'room.say' ? { sayId: 's-1', id: 'a1' } : {}));
   ep._roomName = 'myconf'; // joined room
