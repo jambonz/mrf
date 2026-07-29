@@ -207,3 +207,40 @@ test('dialogflow.ces.session_output aliases to dialogflow_ces::session_output wi
   assert.strictEqual(received.text, 'hi');
   assert.strictEqual(received.turn_completed, true);
 });
+
+// ---------------------------------------------------------------------------
+// D) Tool-call round trip: dialogflow_cx_tool_result command + cx tool_calls alias
+// ---------------------------------------------------------------------------
+
+test('dialogflow_cx_tool_result: positional args + quoted JSON -> dialogflow.start with toolResult', async () => {
+  const { ep, calls } = makeEp();
+  const json = '{"tool":"projects/p/locations/l/agents/a/tools/t1","action":"getGeolocation","outputParameters":{"city":"New York"}}';
+  const res = await ep.api('dialogflow_cx_tool_result', `uuid proj loc-1 agentA none en-US '${json}'`);
+  const req = calls.find((c) => c.cmd === 'dialogflow.start');
+  assert.ok(req, 'a dialogflow.start request was sent');
+  assert.strictEqual(req.data.variant, 'cx');
+  assert.strictEqual(req.data.project, 'proj');
+  assert.strictEqual(req.data.location, 'loc-1');
+  assert.strictEqual(req.data.agent, 'agentA');
+  assert.strictEqual(req.data.language, 'en-US');
+  assert.ok(!('environment' in req.data), 'environment "none" omitted');
+  assert.strictEqual(req.data.toolResult.action, 'getGeolocation');
+  assert.strictEqual(req.data.toolResult.outputParameters.city, 'New York');
+  assert.deepStrictEqual(res, { body: '+OK' });
+});
+
+test('dialogflow_cx_tool_result: invalid JSON -> -ERR, no request sent', async () => {
+  const { ep, calls } = makeEp();
+  const res = await ep.api('dialogflow_cx_tool_result', "uuid proj loc-1 agentA none en-US 'not-json'");
+  assert.ok(res.body.startsWith('-ERR'), `got ${res.body}`);
+  assert.strictEqual(calls.filter((c) => c.cmd === 'dialogflow.start').length, 0);
+});
+
+test('dialogflow.cx.tool_calls aliases to dialogflow_cx::tool_calls with the parsed JSON payload', () => {
+  const { ep } = makeEp();
+  let received;
+  ep.addCustomEventListener('dialogflow_cx::tool_calls', (payload) => { received = payload; });
+  ep._onEvent('dialogflow.cx.tool_calls',
+    { vendor: 'dialogflow', variant: 'cx', json: '{"tool_calls":[{"tool":"t1","action":"getGeolocation","input_parameters":{}}]}' });
+  assert.strictEqual(received.tool_calls[0].action, 'getGeolocation');
+});
