@@ -214,7 +214,8 @@ test('dialogflow.ces.session_output aliases to dialogflow_ces::session_output wi
 
 test('dialogflow_cx_tool_result: positional args + quoted JSON -> dialogflow.start with toolResult', async () => {
   const { ep, calls } = makeEp();
-  const json = '{"tool":"projects/p/locations/l/agents/a/tools/t1","action":"getGeolocation","outputParameters":{"city":"New York"}}';
+  const json = '{"tool":"projects/p/locations/l/agents/a/tools/t1","action":"getGeolocation",' +
+    '"outputParameters":{"city":"New York"}}';
   const res = await ep.api('dialogflow_cx_tool_result', `uuid proj loc-1 agentA none en-US '${json}'`);
   const req = calls.find((c) => c.cmd === 'dialogflow.start');
   assert.ok(req, 'a dialogflow.start request was sent');
@@ -241,6 +242,7 @@ test('dialogflow.cx.tool_calls aliases to dialogflow_cx::tool_calls with the par
   let received;
   ep.addCustomEventListener('dialogflow_cx::tool_calls', (payload) => { received = payload; });
   ep._onEvent('dialogflow.cx.tool_calls',
-    { vendor: 'dialogflow', variant: 'cx', json: '{"tool_calls":[{"tool":"t1","action":"getGeolocation","input_parameters":{}}]}' });
+    { vendor: 'dialogflow', variant: 'cx',
+      json: '{"tool_calls":[{"tool":"t1","action":"getGeolocation","input_parameters":{}}]}' });
   assert.strictEqual(received.tool_calls[0].action, 'getGeolocation');
 });
