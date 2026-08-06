@@ -237,6 +237,85 @@ test('dialogflow_cx_tool_result: invalid JSON -> -ERR, no request sent', async (
   assert.strictEqual(calls.filter((c) => c.cmd === 'dialogflow.start').length, 0);
 });
 
+// ---------------------------------------------------------------------------
+// D2) CES tool-call round trip: dialogflow_ces_tool_result must send the result
+// MID-STREAM (dialogflow.toolResult), never restart the session via
+// dialogflow.start — a restart would abandon the turn awaiting the result.
+// ---------------------------------------------------------------------------
+
+const b64 = (o) => Buffer.from(JSON.stringify(o), 'utf8').toString('base64');
+
+test('dialogflow_ces_tool_result: base64 payload -> dialogflow.toolResult, mid-stream', async () => {
+  const { ep, calls } = makeEp();
+  const responses = [
+    { id: 'call-1', tool: 'projects/p/locations/l/apps/a/tools/t1', output: { city: 'New York' } }
+  ];
+  const res = await ep.api('dialogflow_ces_tool_result', `uuid ${b64(responses)}`);
+
+  const req = calls.find((c) => c.cmd === 'dialogflow.toolResult');
+  assert.ok(req, 'a dialogflow.toolResult request was sent');
+  assert.strictEqual(calls.filter((c) => c.cmd === 'dialogflow.start').length, 0,
+    'CES must NOT restart the stream to deliver a tool result');
+  assert.strictEqual(req.data.toolResponses.length, 1);
+  assert.strictEqual(req.data.toolResponses[0].id, 'call-1');
+  assert.strictEqual(req.data.toolResponses[0].output.city, 'New York');
+  assert.deepStrictEqual(res, { body: '+OK' });
+});
+
+test('dialogflow_ces_tool_result: answers every call in one send', async () => {
+  const { ep, calls } = makeEp();
+  const responses = [
+    { id: 'call-1', tool: 't1', output: { ok: 1 } },
+    { id: 'call-2', tool: 't2', error: 'backend unreachable' }
+  ];
+  await ep.api('dialogflow_ces_tool_result', `uuid ${b64(responses)}`);
+
+  const req = calls.find((c) => c.cmd === 'dialogflow.toolResult');
+  assert.strictEqual(req.data.toolResponses.length, 2, 'both calls answered');
+  assert.strictEqual(req.data.toolResponses[1].error, 'backend unreachable');
+});
+
+test('dialogflow_ces_tool_result: apostrophes in output survive the arg string', async () => {
+  const { ep, calls } = makeEp();
+  // A bare "'" would terminate a quoted arg span early; base64 keeps it intact.
+  const responses = [{ id: 'call-1', tool: 't1', error: "Can't reach the CRM" }];
+  await ep.api('dialogflow_ces_tool_result', `uuid ${b64(responses)}`);
+
+  const req = calls.find((c) => c.cmd === 'dialogflow.toolResult');
+  assert.strictEqual(req.data.toolResponses[0].error, "Can't reach the CRM");
+});
+
+test('dialogflow_ces_tool_result: invalid payload -> -ERR, no request sent', async () => {
+  const { ep, calls } = makeEp();
+  const res = await ep.api('dialogflow_ces_tool_result', 'uuid bm90LWpzb24=');
+  assert.ok(res.body.startsWith('-ERR'), `got ${res.body}`);
+  assert.strictEqual(calls.filter((c) => c.cmd === 'dialogflow.toolResult').length, 0);
+  assert.strictEqual(calls.filter((c) => c.cmd === 'dialogflow.start').length, 0);
+});
+
+test('dialogflow_tool_result (ES) is rejected, not silently restarted as CX', async () => {
+  const { ep, calls } = makeEp();
+  // ES has no client-side tool calls, and mediajam's ES dialect ignores
+  // SessionConfig.ToolResult. Falling through to the CX branch would parse these
+  // args with the wrong layout and restart the ES session, dropping the result.
+  const res = await ep.api('dialogflow_tool_result', "uuid proj en-US '{\"outputParameters\":{}}'");
+  assert.ok(res.body.startsWith('-ERR'), `got ${res.body}`);
+  assert.strictEqual(calls.filter((c) => c.cmd === 'dialogflow.start').length, 0,
+    'must not restart the ES session');
+  assert.strictEqual(calls.filter((c) => c.cmd === 'dialogflow.toolResult').length, 0);
+});
+
+test('dialogflow.ces.tool_calls aliases to dialogflow_ces::tool_calls with the parsed JSON payload', () => {
+  const { ep } = makeEp();
+  let received;
+  ep.addCustomEventListener('dialogflow_ces::tool_calls', (payload) => { received = payload; });
+  ep._onEvent('dialogflow.ces.tool_calls',
+    { vendor: 'dialogflow', variant: 'ces',
+      json: '{"tool_calls":[{"id":"call-1","display_name":"getGeolocation","tool":"t1","args":{}}]}' });
+  assert.strictEqual(received.tool_calls[0].id, 'call-1');
+  assert.strictEqual(received.tool_calls[0].display_name, 'getGeolocation');
+});
+
 test('dialogflow.cx.tool_calls aliases to dialogflow_cx::tool_calls with the parsed JSON payload', () => {
   const { ep } = makeEp();
   let received;
