@@ -293,6 +293,18 @@ test('dialogflow_ces_tool_result: invalid payload -> -ERR, no request sent', asy
   assert.strictEqual(calls.filter((c) => c.cmd === 'dialogflow.start').length, 0);
 });
 
+test('dialogflow_tool_result (ES) is rejected, not silently restarted as CX', async () => {
+  const { ep, calls } = makeEp();
+  // ES has no client-side tool calls, and mediajam's ES dialect ignores
+  // SessionConfig.ToolResult. Falling through to the CX branch would parse these
+  // args with the wrong layout and restart the ES session, dropping the result.
+  const res = await ep.api('dialogflow_tool_result', "uuid proj en-US '{\"outputParameters\":{}}'");
+  assert.ok(res.body.startsWith('-ERR'), `got ${res.body}`);
+  assert.strictEqual(calls.filter((c) => c.cmd === 'dialogflow.start').length, 0,
+    'must not restart the ES session');
+  assert.strictEqual(calls.filter((c) => c.cmd === 'dialogflow.toolResult').length, 0);
+});
+
 test('dialogflow.ces.tool_calls aliases to dialogflow_ces::tool_calls with the parsed JSON payload', () => {
   const { ep } = makeEp();
   let received;
