@@ -64,7 +64,10 @@ class MockMediajam {
 
   _onFrame(socket, frame) {
     if (frame.t === 'hello') {
-      this.send(socket, { t: 'hello', data: { version: 1, server: 'mock/0.0.0', maxSessions: 100 } });
+      this.send(socket, { t: 'hello', data: {
+        version: 1, server: 'mock/0.0.0', maxSessions: 100,
+        codecs: ['PCMU', 'PCMA', 'OPUS', 'G722'], supportedCodecs: ['PCMU', 'PCMA', 'OPUS', 'G722']
+      } });
       return;
     }
     if (frame.t !== 'req') return;
