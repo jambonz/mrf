@@ -19,6 +19,15 @@ test('connects and exposes server hello', async(t) => {
   const { ms } = await setup(t);
   assert.equal(ms.connected, true);
   assert.equal(ms.maxSessions, 100);
+  assert.deepStrictEqual(ms.codecs, ['PCMU', 'PCMA', 'OPUS', 'G722']);
+  assert.deepStrictEqual(ms.supportedCodecs, ['PCMU', 'PCMA', 'OPUS', 'G722']);
+});
+
+test('createEndpoint forwards a per-call codecs list', async(t) => {
+  const { ms, mock } = await setup(t);
+  await ms.createEndpoint({ codecs: ['G722', 'PCMU'] });
+  const createReq = mock.requests.find((r) => r.cmd === 'endpoint.create');
+  assert.deepStrictEqual(createReq.data.codecs, ['G722', 'PCMU']);
 });
 
 test('createEndpoint returns fsmrf-shaped endpoint', async(t) => {
