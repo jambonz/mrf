@@ -34,6 +34,24 @@ test('join sends room.join with mapped flags and returns fsmrf shape', async () 
   assert.deepStrictEqual(res, { memberId: '7', confUuid: 'u-1' });
 });
 
+test("join maps flags['dist-dtmf'] to distDtmf", async () => {
+  const { ep, calls } = makeEp((cmd) =>
+    cmd === 'room.join' ? { roomUuid: 'u-2', memberId: 3 } : {});
+  await ep.join('myconf', { flags: { 'dist-dtmf': true } });
+
+  const join = calls.find((c) => c.cmd === 'room.join');
+  assert.deepStrictEqual(join.data, { room: 'myconf', distDtmf: true });
+});
+
+test('join omits distDtmf when dist-dtmf is not set', async () => {
+  const { ep, calls } = makeEp((cmd) =>
+    cmd === 'room.join' ? { roomUuid: 'u-3', memberId: 4 } : {});
+  await ep.join('myconf', { flags: { moderator: true } });
+
+  const join = calls.find((c) => c.cmd === 'room.join');
+  assert.ok(!('distDtmf' in join.data), 'distDtmf must be absent when the flag is off');
+});
+
 test('api conference get count returns the count as a body string', async () => {
   const { ep } = makeEp((cmd) => (cmd === 'room.query' ? { found: true, count: 3 } : {}));
   const res = await ep.api('conference', ['myconf', 'get', 'count']);
