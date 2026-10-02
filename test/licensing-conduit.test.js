@@ -79,3 +79,63 @@ test('token-2 with no token-1 (unlicensed) is a no-op — no validate call, no t
   assert.strictEqual(destroyed, false);
   assert.strictEqual(ep.connected, true);
 });
+
+/* mediajam rejects a token-2 older than 40s; the feature-server sets the same
+   token again on each later provisional and on the 200 OK. */
+const expiringValidator = () => {
+  let validated = 0;
+  return (cmd) => {
+    if (cmd === 'licensing.generate-token') return { token: 'TOK1' };
+    if (cmd === 'licensing.validate-token-2') {
+      if (validated++ > 0) throw new Error('session token 2 invalid');
+      return { valid: true };
+    }
+    return {};
+  };
+};
+
+test('the same token-2 is validated once: a re-set after a long ring does not tear down', async () => {
+  const { ep, calls } = makeEp(expiringValidator());
+  await ep.api('uuid_jambonz_licensing', 'generate-session-token ep-1 call-123');
+  let destroyed = false;
+  ep.on('destroy', () => { destroyed = true; });
+  await ep.set('jambonz_session_token_2', 'TOK2');   // 180, fresh
+  await ep.set('jambonz_session_token_2', 'TOK2');   // 183 at 45s, same token
+  await ep.set('jambonz_session_token_2', 'TOK2');   // 200 OK, same token
+  assert.strictEqual(calls.filter((c) => c.cmd === 'licensing.validate-token-2').length, 1);
+  assert.strictEqual(destroyed, false);
+  assert.strictEqual(ep.connected, true);
+});
+
+test('a different token-2 is still validated (and torn down if invalid)', async () => {
+  const { ep, calls } = makeEp(expiringValidator());
+  await ep.api('uuid_jambonz_licensing', 'generate-session-token ep-1 call-123');
+  let destroyed = null;
+  ep.on('destroy', (evt) => { destroyed = evt; });
+  await ep.set('jambonz_session_token_2', 'TOK2');
+  await ep.set('jambonz_session_token_2', 'OTHER');
+  assert.strictEqual(calls.filter((c) => c.cmd === 'licensing.validate-token-2').length, 2);
+  assert.strictEqual(ep.connected, false);
+  assert.strictEqual(destroyed.reason, 'license-violation');
+});
+
+test('a token-2 that failed validation is not remembered as validated', async () => {
+  const { ep, calls } = makeEp((cmd) => {
+    if (cmd === 'licensing.generate-token') return { token: 'TOK1' };
+    if (cmd === 'licensing.validate-token-2') throw new Error('session token 2 invalid');
+    return {};
+  });
+  await ep.api('uuid_jambonz_licensing', 'generate-session-token ep-1 call-123');
+  await ep.set('jambonz_session_token_2', 'BAD');
+  assert.strictEqual(ep._validatedToken2 || '', '');
+  assert.strictEqual(calls.filter((c) => c.cmd === 'licensing.validate-token-2').length, 1);
+});
+
+test('minting a new token-1 clears the remembered token-2', async () => {
+  const { ep, calls } = makeEp((cmd) => (cmd === 'licensing.generate-token' ? { token: 'TOK1' } : { valid: true }));
+  await ep.api('uuid_jambonz_licensing', 'generate-session-token ep-1 call-123');
+  await ep.set('jambonz_session_token_2', 'TOK2');
+  await ep.api('uuid_jambonz_licensing', 'generate-session-token ep-1 call-456');
+  await ep.set('jambonz_session_token_2', 'TOK2');
+  assert.strictEqual(calls.filter((c) => c.cmd === 'licensing.validate-token-2').length, 2);
+});
