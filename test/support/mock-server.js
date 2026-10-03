@@ -117,6 +117,7 @@ class MockMediajam {
       case 'dtmf.send':
       case 'stt.start':
       case 'stt.stop':
+      case 'stt.configure':
       case 'endpoint.set':
       case 'endpoint.mute':
       case 'endpoint.unmute':

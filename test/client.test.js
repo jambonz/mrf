@@ -288,6 +288,40 @@ test('startTranscription forwards channel vars as options', async(t) => {
   assert.ok(!('UNRELATED' in req.data.options), 'empty vars are cleared');
 });
 
+test('api uuid_deepgramflux_configure maps to an stt.configure patch', async(t) => {
+  const { ms, mock } = await setup(t);
+  const ep = await ms.createEndpoint({});
+  const msg = JSON.stringify({
+    type: 'Configure',
+    keyterms: ['Blue Cross', 'Optum'],
+    language_hints: [],
+    thresholds: {eot_threshold: 0.8, eot_timeout_ms: 3000}
+  });
+  const res = await ep.api('uuid_deepgramflux_configure', `${ep.uuid} my_bug ${msg}`);
+  assert.equal(res.body, '+OK');
+  const req = mock.requests.find((r) => r.cmd === 'stt.configure');
+  assert.equal(req.ep, ep.uuid);
+  assert.deepEqual(req.data, {
+    bugname: 'my_bug',
+    options: {
+      DEEPGRAMFLUX_SPEECH_KEYTERMS: 'Blue Cross,Optum',
+      DEEPGRAMFLUX_SPEECH_LANGUAGE_HINTS: '',
+      DEEPGRAMFLUX_SPEECH_EOT_THRESHOLD: '0.8',
+      DEEPGRAMFLUX_SPEECH_EOT_TIMEOUT_MS: '3000'
+    }
+  });
+});
+
+test('api uuid_deepgramflux_configure reports what it cannot do', async(t) => {
+  const { ms, mock } = await setup(t);
+  const ep = await ms.createEndpoint({});
+  const empty = await ep.api('uuid_deepgramflux_configure', `${ep.uuid} b {"type":"Configure"}`);
+  assert.match(empty.body, /^-ERR/);
+  const bad = await ep.api('uuid_deepgramflux_configure', `${ep.uuid} b not-json`);
+  assert.match(bad.body, /^-ERR/);
+  assert.ok(!mock.requests.find((r) => r.cmd === 'stt.configure'));
+});
+
 test('stt events deliver fsmrf header aliases', async(t) => {
   const { ms, mock } = await setup(t);
   const ep = await ms.createEndpoint({});
