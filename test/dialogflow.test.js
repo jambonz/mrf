@@ -139,6 +139,25 @@ test('dialogflow_ces_start: deployment "none" drops the key; singleUtterance def
   assert.ok(!('deployment' in req.data), 'deployment "none" omitted');
 });
 
+test('dialogflow_ces_start: base64 9th arg -> data.variables, values with spaces/quotes intact', async () => {
+  const { ep, calls } = makeEp();
+  const vars = { caller_phone: '+15551234567', note: "it's a test", n: 3 };
+  const enc = Buffer.from(JSON.stringify(vars), 'utf8').toString('base64');
+  await ep.api('dialogflow_ces_start', `uuid proj loc-1 appX none en-US welcome none 1 ${enc}`);
+  const req = calls.find((c) => c.cmd === 'dialogflow.start');
+  assert.strictEqual(req.data.event, 'welcome');
+  assert.deepStrictEqual(req.data.variables, vars);
+});
+
+test('dialogflow_ces_start: no 9th arg or "none" -> no variables key', async () => {
+  const { ep, calls } = makeEp();
+  await ep.api('dialogflow_ces_start', 'uuid proj loc-1 appX none en-US welcome none 1');
+  await ep.api('dialogflow_ces_start', 'uuid proj loc-1 appX none en-US welcome none 1 none');
+  const reqs = calls.filter((c) => c.cmd === 'dialogflow.start');
+  assert.strictEqual(reqs.length, 2);
+  reqs.forEach((r) => assert.ok(!('variables' in r.data)));
+});
+
 test('GOOGLE_APPLICATION_CREDENTIALS set via ep.set() is forwarded under data.options on start', async () => {
   const { ep, calls } = makeEp();
   await ep.set('GOOGLE_APPLICATION_CREDENTIALS', '{"type":"service_account"}');
