@@ -96,11 +96,11 @@ test('play PlaybackOptions form passes seekOffset', async(t) => {
 test('play url translation', async(t) => {
   const { ms, mock } = await setup(t);
   const ep = await ms.createEndpoint({});
-  await ep.play(['silence_stream://500', 'tone_stream://L=1;%(250, 0, 440)', 'https://x.test/a.wav']);
+  await ep.play(['silence_stream://500', 'tone_stream://%(250,0,440);loops=-1', 'https://x.test/a.wav']);
   const playReq = mock.requests.find((r) => r.cmd === 'play.start');
   assert.deepEqual(playReq.data.urls, [
     'silence://?duration=500',
-    'tone://?freq=440&duration=250',
+    'tone_stream://%(250,0,440);loops=-1', // tone_stream passes through to mediajam's native TGML parser
     'https://x.test/a.wav'
   ]);
 });

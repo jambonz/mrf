@@ -98,13 +98,13 @@ test('api conference set endconference_grace_time is accepted (no-op)', async ()
   assert.strictEqual(calls.length, 0);
 });
 
-test('conference play issues room.play (bong->beep, urls pass through); record no-ops', async () => {
+test('conference play issues room.play (tone_stream + urls pass through); record no-ops', async () => {
   const { ep, calls } = makeEp();
   assert.deepStrictEqual(await ep.api('conference myconf record /tmp/x'), { body: '+OK' });
   assert.deepStrictEqual(await ep.api('conference myconf play tone_stream://v=-7;%(100,0,941)'), { body: '+OK' });
   assert.deepStrictEqual(await ep.api('conference myconf play https://x/a.wav'), { body: '+OK' });
   assert.deepStrictEqual(calls.map((c) => [c.cmd, c.data]), [
-    ['room.play', { room: 'myconf', url: 'tone://?freq=440&duration=250&gainDb=-4' }],
+    ['room.play', { room: 'myconf', url: 'tone_stream://v=-7;%(100,0,941)' }],
     ['room.play', { room: 'myconf', url: 'https://x/a.wav' }]
   ]);
 });
@@ -311,7 +311,7 @@ test('roomPlay translates the url, sends room.play, returns {playId}', async () 
   const { ep, calls } = makeEp((cmd) => (cmd === 'room.play' ? { playId: 'p-1' } : {}));
   const res = await ep.roomPlay('tone_stream://%(200,0,880)', { room: 'myconf' });
   const c = calls.find((c) => c.cmd === 'room.play');
-  assert.deepStrictEqual(c.data, { room: 'myconf', url: 'tone://?freq=880&duration=200' });
+  assert.deepStrictEqual(c.data, { room: 'myconf', url: 'tone_stream://%(200,0,880)' });
   assert.deepStrictEqual(res, { playId: 'p-1' });
 });
 
