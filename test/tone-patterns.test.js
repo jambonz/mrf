@@ -3,8 +3,8 @@ const assert = require('node:assert');
 const { translatePlayUrl } = require('../lib/utils');
 const patterns = require('../lib/tone-patterns');
 
-const US_RING = 'tone_stream://%(2000,4000,440,480)';
-const GB_RING = 'tone_stream://%(400,200,400,450);%(400,2000,400,450)';
+const US_RING = 'tone_stream://%(2000,4000,440,480);loops=-1';
+const GB_RING = 'tone_stream://%(400,200,400,450);%(400,2000,400,450);loops=-1';
 
 test('tone_stream shorthand expands to the country pattern', () => {
   assert.equal(translatePlayUrl('tone_stream://us.ring'), US_RING);
@@ -12,7 +12,7 @@ test('tone_stream shorthand expands to the country pattern', () => {
 });
 
 test('vn (Vietnam, not in E.180) resolves to its ringback', () => {
-  assert.equal(translatePlayUrl('tone_stream://vn.ring'), 'tone_stream://%(1000,4000,425)');
+  assert.equal(translatePlayUrl('tone_stream://vn.ring'), 'tone_stream://%(1000,4000,425);loops=-1');
 });
 
 test('tone aliases ring/ringing/ringback are equivalent', () => {
@@ -46,11 +46,11 @@ test('silence_stream translation is unaffected', () => {
   assert.equal(translatePlayUrl('silence_stream://500'), 'silence://?duration=500');
 });
 
-test('every pattern is a single-period tone_stream url (no ;loops=)', () => {
+test('every pattern is a tone_stream url that loops forever (;loops=-1)', () => {
   for (const [cc, tones] of Object.entries(patterns)) {
     for (const [tone, url] of Object.entries(tones)) {
       assert.match(url, /^tone_stream:\/\/%\(/, `${cc}.${tone} should start with a %() pattern`);
-      assert.ok(!/;loops=/.test(url), `${cc}.${tone} should not carry a ;loops= suffix`);
+      assert.ok(url.endsWith(';loops=-1'), `${cc}.${tone} should end with ;loops=-1`);
     }
   }
 });
