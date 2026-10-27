@@ -344,3 +344,56 @@ test('dialogflow.cx.tool_calls aliases to dialogflow_cx::tool_calls with the par
       json: '{"tool_calls":[{"tool":"t1","action":"getGeolocation","input_parameters":{}}]}' });
   assert.strictEqual(received.tool_calls[0].action, 'getGeolocation');
 });
+
+// ---------------------------------------------------------------------------
+// D3) CES mid-call input: dialogflow_ces_input sends app input into the live
+// session (dialogflow.input), never a restart, and reports sent vs held.
+// ---------------------------------------------------------------------------
+
+test('dialogflow_ces_input: base64 payload -> dialogflow.input, mid-stream', async () => {
+  const { ep, calls } = makeEp((cmd) => (cmd === 'dialogflow.input' ? { status: 'sent' } : {}));
+  const input = { event: 'payment_approved', variables: { amount: "5.14 'USD'" } };
+  const res = await ep.api('dialogflow_ces_input', `uuid ${b64(input)}`);
+
+  const req = calls.find((c) => c.cmd === 'dialogflow.input');
+  assert.ok(req, 'a dialogflow.input request was sent');
+  assert.deepStrictEqual(req.data, input, 'payload survives the arg string intact');
+  assert.strictEqual(calls.filter((c) => c.cmd === 'dialogflow.start').length, 0,
+    'mid-call input must not restart the session');
+  assert.deepStrictEqual(res, { body: '+OK sent' });
+});
+
+test('dialogflow_ces_input: reports an input held until the agent turn ends', async () => {
+  const { ep } = makeEp(() => ({ status: 'held' }));
+  const res = await ep.api('dialogflow_ces_input', `uuid ${b64({ text: 'hi' })}`);
+  assert.deepStrictEqual(res, { body: '+OK held' });
+});
+
+test('dialogflow_ces_input: a mediajam refusal comes back as -ERR', async () => {
+  const { ep } = makeEp(() => { throw new Error('dialogflow: no active session'); });
+  const res = await ep.api('dialogflow_ces_input', `uuid ${b64({ event: 'x' })}`);
+  assert.deepStrictEqual(res, { body: '-ERR dialogflow: no active session' });
+});
+
+test('dialogflow_cx_input / dialogflow_input: refused, not guessed at', async () => {
+  const { ep, calls } = makeEp();
+  for (const cmd of ['dialogflow_cx_input', 'dialogflow_input']) {
+    const res = await ep.api(cmd, `uuid ${b64({ event: 'x' })}`);
+    assert.ok(res.body.startsWith('-ERR'), `${cmd} got ${res.body}`);
+  }
+  assert.strictEqual(calls.length, 0);
+});
+
+test('dialogflow.ces.input_sent / input_dropped alias to dialogflow_ces:: names', () => {
+  const { ep } = makeEp();
+  const got = {};
+  for (const name of ['input_sent', 'input_dropped']) {
+    ep.addCustomEventListener(`dialogflow_ces::${name}`, (payload) => { got[name] = payload; });
+  }
+  ep._onEvent('dialogflow.ces.input_sent',
+    { vendor: 'dialogflow', variant: 'ces', json: '{"kind":"event","event":"paid","waited_ms":1100}' });
+  ep._onEvent('dialogflow.ces.input_dropped',
+    { vendor: 'dialogflow', variant: 'ces', json: '{"kind":"event","event":"late","reason":"session ended"}' });
+  assert.strictEqual(got.input_sent.event, 'paid');
+  assert.strictEqual(got.input_dropped.reason, 'session ended');
+});
