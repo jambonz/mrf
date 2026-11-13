@@ -21,11 +21,15 @@ function makeEp() {
 
 test('uuid_kugelaudio_s2s session.create: vendor kugelaudio with host, path, auth and key', async () => {
   const { ep, calls } = makeEp();
-  const res = await ep.api('uuid_kugelaudio_s2s', '^^|ep-1|session.create|api.eu.kugelaudio.com|v1/live/sessions|bearer|kg_test');
+  const res = await ep.api('uuid_kugelaudio_s2s',
+    '^^|ep-1|session.create|api.eu.kugelaudio.com|v1/live/sessions|bearer|kg_test');
   assert.strictEqual(res.body, '+OK');
   assert.deepStrictEqual(calls[0], {
     cmd: 's2s.start', uuid: 'ep-1',
-    data: { vendor: 'kugelaudio', host: 'api.eu.kugelaudio.com', path: 'v1/live/sessions', authType: 'bearer', apiKey: 'kg_test' }
+    data: {
+      vendor: 'kugelaudio', host: 'api.eu.kugelaudio.com', path: 'v1/live/sessions',
+      authType: 'bearer', apiKey: 'kg_test'
+    }
   });
 });
 
